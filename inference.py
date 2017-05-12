@@ -209,7 +209,7 @@ total_conv2d_layer = 0
 timer_hook = TimerHook()
 
 for i in xrange(max_iter):
-	x_data, label, l= get_mini_batch(1, bg)
+	x_data, label, l= get_mini_batch(N, bg)
 
 	# minus mean image
 	x_data -= mean_image
