@@ -30,7 +30,7 @@ parser.add_argument('--mean', '-m', default='ilsvrc_2012_mean.npy',
                     help='Path to the mean file')
 
 args = parser.parse_args()
-
+print 'lol'
 # N, C, W, H
 W = 0
 H = 0
@@ -177,7 +177,7 @@ def print_layer_time(hook):
 # lt = LayerTimer(model_path)
 # configuration for inference
 chainer.config.train = False
-
+print 'here'
 progress_bar = ProgressBar(estimate_load_time)
 progress_bar.start()
 
@@ -191,7 +191,7 @@ progress_bar.end()
 time.sleep(1)
 print '\nsuccessfully load caffe model, it costs %s seconds' % (end_time - start_time)
 
-max_iter = 1000
+max_iter = 10
 total_time = 0
 average_time = 0
 
@@ -209,11 +209,14 @@ total_conv2d_layer = 0
 timer_hook = TimerHook()
 
 for i in xrange(max_iter):
+	print 'start to get mini batch'
 	x_data, label, l= get_mini_batch(N, bg)
+	print 'end getting mini batch'
+	# raise ValueError('debugging')
 
 	# minus mean image
 	x_data -= mean_image
-
+	print x_data.shape
 
 	x = Variable(x_data)
 
@@ -228,7 +231,6 @@ for i in xrange(max_iter):
 	total_time += inference_time
 
 	# print '[%s] infernece time is %sms' % (str(i), str(inference_time))
-	
 	top5_y = np.argpartition(y.data[0], -5)[-5:]
 	# print 'l=%s, h=%s, top5=%s' % (str(l), str(np.argmax(y.data)), str(top5))
 
