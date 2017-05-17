@@ -30,7 +30,6 @@ parser.add_argument('--mean', '-m', default='ilsvrc_2012_mean.npy',
                     help='Path to the mean file')
 
 args = parser.parse_args()
-print 'lol'
 # N, C, W, H
 W = 0
 H = 0
@@ -177,7 +176,6 @@ def print_layer_time(hook):
 # lt = LayerTimer(model_path)
 # configuration for inference
 chainer.config.train = False
-print 'here'
 progress_bar = ProgressBar(estimate_load_time)
 progress_bar.start()
 
