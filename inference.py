@@ -60,7 +60,7 @@ if args.arch == 'alexnet':
 		y, = func(inputs={'data': x}, outputs=['fc8'])
 		return y
 elif args.arch == 'googlenet':
-	estimate_load_time = 22
+	estimate_load_time = 300 
 	W = 224
 	H = 224
 	C = 3
