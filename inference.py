@@ -189,7 +189,7 @@ progress_bar.end()
 time.sleep(1)
 print '\nsuccessfully load caffe model, it costs %s seconds' % (end_time - start_time)
 
-max_iter = 10
+max_iter = 1000 if 50000 / N >= 1000 else 50000 / N
 total_time = 0
 average_time = 0
 
@@ -207,14 +207,10 @@ total_conv2d_layer = 0
 timer_hook = TimerHook()
 
 for i in xrange(max_iter):
-	print 'start to get mini batch'
 	x_data, label, l= get_mini_batch(N, bg)
-	print 'end getting mini batch'
-	# raise ValueError('debugging')
 
 	# minus mean image
 	x_data -= mean_image
-	print x_data.shape
 
 	x = Variable(x_data)
 
@@ -232,22 +228,37 @@ for i in xrange(max_iter):
 	top5_y = np.argpartition(y.data[0], -5)[-5:]
 	# print 'l=%s, h=%s, top5=%s' % (str(l), str(np.argmax(y.data)), str(top5))
 
-	if np.argmax(label) in top5_y:
-		top5 += 1
+	item_index = 0
+	for item_index in range(0, N):
+		item_y = y.data[item_index]
 
-	if np.argmax(label) == np.argmax(y.data):
-		top1 += 1
+		item_label = label[item_index]
+		top5_y = np.argpartition(item_y, -5)[-5:]
+
+		if np.argmax(item_label) in top5_y:
+			top5 += 1
+
+		if np.argmax(item_label) == np.argmax(item_y):
+			top1 += 1
+
+	# if np.argmax(label) in top5_y:
+	# 	top5 += 1
+
+	# if np.argmax(label) == np.argmax(y.data):
+	# 	top1 += 1
 
 	sys.stdout.write('\r[{}/{}]'.format(i + 1, max_iter))
 	sys.stdout.flush()
 
 
-average_time = total_time / max_iter
+set_size = max_iter * N
+
+average_time = total_time / set_size
 
 print '\nTotal time is %s ms' % str(total_time)
 print 'Average time is %s ms' % str(average_time)
-print 'Top5 accuracy is %s%%' % str(float(top5) * 100 / max_iter)
-print 'Top1 accuracy is %s%%' % str(float(top1) * 100 / max_iter)
+print 'Top5 accuracy is %s%%' % str(float(top5) * 100 / set_size)
+print 'Top1 accuracy is %s%%' % str(float(top1) * 100 / set_size)
 
 # print 'Total conv2d time is %s ms' % str(total_conv2d_time)
 # print 'Total conv2d time is %s ms' % str(float(total_conv2d_time) / total_conv2d_layer)
