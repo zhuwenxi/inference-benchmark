@@ -28,8 +28,16 @@ parser.add_argument('--arch', '-a', default='alexnet', help='Convnet architectur
 parser.add_argument('--batchsize', '-B', type=int, default=1, help='minibatch size')
 parser.add_argument('--mean', '-m', default='ilsvrc_2012_mean.npy',
                     help='Path to the mean file')
+parser.add_argument('--gpu', '-g', default=-1, type=int,
+                    help='GPU ID (negative value indicates CPU)')
 
 args = parser.parse_args()
+
+# setup for GPU
+np = cuda.cupy if args.gpu >= 0 else np
+if args.gpu >= 0:
+	cuda.get_device(args.gpu).use()
+
 # N, C, W, H
 W = 0
 H = 0
@@ -50,7 +58,7 @@ label_category = 1000
 mean_image = np.load(args.mean)
 
 if args.arch == 'alexnet':
-	estimate_load_time = 120
+	estimate_load_time = 1373 
 	W = 227
 	H = 227
 	C = 3 
@@ -72,7 +80,7 @@ elif args.arch == 'googlenet':
 elif args.arch == 'rcnn':
 	pass
 elif args.arch == 'caffenet':
-	estimate_load_time = 120
+	estimate_load_time = 1373 
 	W = 224
 	H = 224
 	C = 3
