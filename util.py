@@ -1,5 +1,8 @@
 from chainer.links.caffe.protobuf3 import caffe_pb2 as caffe_pb
 from chainer.function_hooks import timer
+from chainer.links.caffe import CaffeFunction
+
+import collections
 import threading
 import time
 import sys
@@ -38,7 +41,7 @@ class LayerTimer(object):
 			for layer in net.layer:
 				layer_impl_path = _layer_impl_path_dict.get(layer.type)
 				if layer_impl_path:
-					_setup_timer_by_layer(layer.type, layer_impl_path)
+					self._setup_timer_by_layer(layer.type, layer_impl_path)
 				else:
 					print 'unimplemented layer timer: %s' % layer.type
 		else: #v1 format
@@ -127,57 +130,86 @@ from chainer import function
 
 
 class TimerHook(function.FunctionHook):
-    """Function hook for measuring elapsed time of functions.
+	"""Function hook for measuring elapsed time of functions.
 
-    Attributes:
-        call_history: List of measurement results. It consists of pairs of
-            the function that calls this hook and the elapsed time
-            the function consumes.
-    """
+	Attributes:
+		call_history: List of measurement results. It consists of pairs of
+			the function that calls this hook and the elapsed time
+			the function consumes.
+	"""
 
-    name = 'TimerHook'
+	name = 'TimerHook'
 
-    def __init__(self):
-        self.call_history = []
+	def __init__(self):
+		self.call_history = []
 
-    def _preprocess(self):
-        if self.xp == numpy:
-            self.start = time.time()
-        else:
-            self.start = cuda.Event()
-            self.stop = cuda.Event()
-            self.start.record()
+	def _preprocess(self):
+		if self.xp == numpy:
+			self.start = time.time()
+		else:
+			self.start = cuda.Event()
+			self.stop = cuda.Event()
+			self.start.record()
 
-    def forward_preprocess(self, function, in_data):
-        self.xp = cuda.get_array_module(*in_data)
-        self._preprocess()
+	def forward_preprocess(self, function, in_data):
+		self.xp = cuda.get_array_module(*in_data)
+		self._preprocess()
 
-    def backward_preprocess(self, function, in_data, out_grad):
-        self.xp = cuda.get_array_module(*(in_data + out_grad))
-        self._preprocess()
+	def backward_preprocess(self, function, in_data, out_grad):
+		self.xp = cuda.get_array_module(*(in_data + out_grad))
+		self._preprocess()
 
-    def _postprocess(self, function):
-        if self.xp == numpy:
-            self.stop = time.time()
-            elapsed_time = self.stop - self.start
-        else:
-            self.stop.record()
-            self.stop.synchronize()
-            # Note that `get_elapsed_time` returns result in milliseconds
-            elapsed_time = cuda.cupy.cuda.get_elapsed_time(
-                self.start, self.stop) / 1000
-        self.call_history.append((function.label, elapsed_time))
+	def _postprocess(self, function):
+		if self.xp == numpy:
+			self.stop = time.time()
+			elapsed_time = self.stop - self.start
+		else:
+			self.stop.record()
+			self.stop.synchronize()
+			# Note that `get_elapsed_time` returns result in milliseconds
+			elapsed_time = cuda.cupy.cuda.get_elapsed_time(
+				self.start, self.stop) / 1000
+		self.call_history.append((function.label, elapsed_time))
 
-    def forward_postprocess(self, function, in_data):
-        xp = cuda.get_array_module(*in_data)
-        assert xp == self.xp
-        self._postprocess(function)
+	def forward_postprocess(self, function, in_data):
+		xp = cuda.get_array_module(*in_data)
+		assert xp == self.xp
+		self._postprocess(function)
 
-    def backward_postprocess(self, function, in_data, out_grad):
-        xp = cuda.get_array_module(*(in_data + out_grad))
-        assert xp == self.xp
-        self._postprocess(function)
+	def backward_postprocess(self, function, in_data, out_grad):
+		xp = cuda.get_array_module(*(in_data + out_grad))
+		assert xp == self.xp
+		self._postprocess(function)
 
-    def total_time(self):
-        """Returns total elapsed time in seconds."""
-        return sum(t for (_, t) in self.call_history)
+	def total_time(self):
+		"""Returns total elapsed time in seconds."""
+		return sum(t for (_, t) in self.call_history)
+
+# A sub-class of CaffeFunction which enables layer-by-layer time hooks 
+class CaffeFunctionImpl(CaffeFunction):
+	def __init__(self, model_path, timer_hook):
+		super(CaffeFunctionImpl, self).__init__(model_path)
+		self.timer_hook = timer_hook
+	def __call__(self, inputs, outputs, disable=(), train=True):
+		self.train = train
+		variables = dict(inputs)
+		for func_name, bottom, top in self.layers:
+			if (func_name in disable or
+				func_name not in self.forwards or
+					any(blob not in variables for blob in bottom)):
+				continue
+			with self.timer_hook:
+				func = self.forwards[func_name]
+				input_vars = tuple(variables[blob] for blob in bottom)
+				output_vars = func(*input_vars)
+				
+			self.timer_hook.call_history[-1] = (func_name, self.timer_hook.call_history[-1][1])
+			if not isinstance(output_vars, collections.Iterable):
+				output_vars = output_vars,
+			for var, name in zip(output_vars, top):
+				variables[name] = var
+
+		self.variables = variables
+		return tuple(variables[blob] for blob in outputs)
+
+CaffeFunction = CaffeFunctionImpl

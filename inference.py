@@ -15,7 +15,8 @@ from util import LayerTimer
 from util import TimerHook
 from util import ProgressBar
 
-from chainer.links.caffe import CaffeFunction
+# from chainer.links.caffe import CaffeFunction
+from util import CaffeFunction
 import time
 import argparse
 import cv2
@@ -182,6 +183,10 @@ def print_layer_time(hook):
 	print '================================================'
 
 # lt = LayerTimer(model_path)
+timer_hook = TimerHook()
+layer_timer_hook = TimerHook()
+layer_timer_hook.name = 'Layer-by-layer timer hook'
+
 # configuration for inference
 chainer.config.train = False
 progress_bar = ProgressBar(estimate_load_time)
@@ -190,7 +195,7 @@ progress_bar.start()
 print 'loading caffe model...'
 
 start_time = time.time()
-func = CaffeFunction(model_path)
+func = CaffeFunction(model_path, layer_timer_hook)
 end_time = time.time()
 
 progress_bar.end()
@@ -212,7 +217,7 @@ top1 = 0
 total_conv2d_time = 0
 total_conv2d_layer = 0
 
-timer_hook = TimerHook()
+
 
 for i in xrange(max_iter):
 	x_data, label, l= get_mini_batch(N, bg)
@@ -272,4 +277,5 @@ print 'Top1 accuracy is %s%%' % str(float(top1) * 100 / set_size)
 # print 'Total conv2d time is %s ms' % str(float(total_conv2d_time) / total_conv2d_layer)
 
 print_layer_time(timer_hook)
+print_layer_time(layer_timer_hook)
 # lt.print_total_time()
