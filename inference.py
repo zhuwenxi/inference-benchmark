@@ -155,7 +155,7 @@ def get_mini_batch(batch_size, bg):
 		# Convert label to one-hot vector
 		label_vec[(i, label)] = 1
 
-		batch[i] = pic_data[:, start:stop, start:stop]
+		batch[i] = np.asarray(pic_data[:, start:stop, start:stop])
 
 		i += 1
 
