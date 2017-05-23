@@ -114,8 +114,8 @@ class ProgressBar(object):
 				self.show_progress()
 
 	def show_progress(self):
-		sys.stdout.write('\r[{:6.2f}%]'.format(self.progress * 100))
-		sys.stdout.flush()
+		sys.stderr.write('\r[{:6.2f}%]'.format(self.progress * 100))
+		sys.stderr.flush()
 
 
 
@@ -185,6 +185,27 @@ class TimerHook(function.FunctionHook):
 		"""Returns total elapsed time in seconds."""
 		return sum(t for (_, t) in self.call_history)
 
+	def print_layer_time(self):
+		layer_time_dict = {}
+		for func, time in self.call_history:
+		# func_name = func.label
+			func_name = func
+			if layer_time_dict.get(func_name) is None:
+				layer_time_dict[func_name] = {'time': time, 'number': 1}
+			else:
+				layer_time_dict[func_name]['time'] += time
+				layer_time_dict[func_name]['number'] += 1
+
+		print '================================================'
+		keys = layer_time_dict.keys()
+		keys.sort()
+		for name in keys:
+			record = layer_time_dict[name]
+			print '[{}]:'.format(name)
+			print 'total time: {} ms'.format(record['time'] * 1000)
+			print 'average time: {} ms\n'.format(float(record['time']) * 1000/ record['number'])
+		print '================================================'
+
 # A sub-class of CaffeFunction which enables layer-by-layer time hooks 
 class CaffeFunctionImpl(CaffeFunction):
 	def __init__(self, model_path, timer_hook):
@@ -202,7 +223,7 @@ class CaffeFunctionImpl(CaffeFunction):
 				func = self.forwards[func_name]
 				input_vars = tuple(variables[blob] for blob in bottom)
 				output_vars = func(*input_vars)
-				
+
 			self.timer_hook.call_history[-1] = (func_name, self.timer_hook.call_history[-1][1])
 			if not isinstance(output_vars, collections.Iterable):
 				output_vars = output_vars,

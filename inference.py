@@ -182,7 +182,6 @@ def print_layer_time(hook):
 		print 'average time: {} ms\n'.format(float(record['time']) * 1000/ record['number'])
 	print '================================================'
 
-# lt = LayerTimer(model_path)
 timer_hook = TimerHook()
 layer_timer_hook = TimerHook()
 layer_timer_hook.name = 'Layer-by-layer timer hook'
@@ -254,14 +253,8 @@ for i in xrange(max_iter):
 		if np.argmax(item_label) == np.argmax(item_y):
 			top1 += 1
 
-	# if np.argmax(label) in top5_y:
-	# 	top5 += 1
-
-	# if np.argmax(label) == np.argmax(y.data):
-	# 	top1 += 1
-
-	sys.stdout.write('\r[{}/{}]'.format(i + 1, max_iter))
-	sys.stdout.flush()
+	# sys.stdout.write('\r[{}/{}]'.format(i + 1, max_iter))
+	# sys.stdout.flush()
 
 
 set_size = max_iter * N
@@ -276,6 +269,5 @@ print 'Top1 accuracy is %s%%' % str(float(top1) * 100 / set_size)
 # print 'Total conv2d time is %s ms' % str(total_conv2d_time)
 # print 'Total conv2d time is %s ms' % str(float(total_conv2d_time) / total_conv2d_layer)
 
-print_layer_time(timer_hook)
-print_layer_time(layer_timer_hook)
-# lt.print_total_time()
+# print_layer_time(timer_hook)
+layer_timer_hook.print_layer_time()
