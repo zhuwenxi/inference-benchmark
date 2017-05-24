@@ -1,5 +1,4 @@
 #! /usr/bin/python
-
 import numpy as np
 import chainer
 from chainer import cuda, Function, gradient_check, report, training, utils, Variable
@@ -11,12 +10,11 @@ from chainer.training import extensions
 
 from chainer.functions.connection import convolution_2d
 from chainer.function_hooks import timer
-from util import LayerTimer
 from util import TimerHook
 from util import ProgressBar
 
-# from chainer.links.caffe import CaffeFunction
-from util import CaffeFunction
+from chainer.links.caffe import CaffeFunction
+# from util import CaffeFunction
 import time
 import argparse
 import cv2
@@ -194,7 +192,7 @@ progress_bar.start()
 print 'loading caffe model...'
 
 start_time = time.time()
-func = CaffeFunction(model_path, layer_timer_hook)
+func = CaffeFunction(model_path)
 end_time = time.time()
 
 progress_bar.end()
@@ -226,19 +224,16 @@ for i in xrange(max_iter):
 
 	x = Variable(x_data)
 
-	with timer_hook:
-		start_time = time.time()
-		y = forward(x)
-		end_time = time.time()
+	start_time = time.time()
+	y = forward(x)
+	end_time = time.time()
 
 	y = F.softmax(y)
 
 	inference_time = (end_time - start_time) * 1000
 	total_time += inference_time
 
-	# print '[%s] infernece time is %sms' % (str(i), str(inference_time))
 	top5_y = np.argpartition(y.data[0], -5)[-5:]
-	# print 'l=%s, h=%s, top5=%s' % (str(l), str(np.argmax(y.data)), str(top5))
 
 	item_index = 0
 	for item_index in range(0, N):
@@ -253,8 +248,8 @@ for i in xrange(max_iter):
 		if np.argmax(item_label) == np.argmax(item_y):
 			top1 += 1
 
-	# sys.stdout.write('\r[{}/{}]'.format(i + 1, max_iter))
-	# sys.stdout.flush()
+	sys.stderr.write('\r[{}/{}]'.format(i + 1, max_iter))
+	sys.stderr.flush()
 
 
 set_size = max_iter * N
@@ -270,4 +265,4 @@ print 'Top1 accuracy is %s%%' % str(float(top1) * 100 / set_size)
 # print 'Total conv2d time is %s ms' % str(float(total_conv2d_time) / total_conv2d_layer)
 
 # print_layer_time(timer_hook)
-layer_timer_hook.print_layer_time()
+# layer_timer_hook.print_layer_time()

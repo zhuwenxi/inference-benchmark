@@ -1,90 +1,14 @@
 from chainer.links.caffe.protobuf3 import caffe_pb2 as caffe_pb
 from chainer.function_hooks import timer
 from chainer.links.caffe import CaffeFunction
+from chainer import cuda
+from chainer import function
 
 import collections
 import threading
 import time
 import sys
-
-_layer_impl_path_dict = {
-	'Convolution': 'chainer.functions.connection.convolution_2d.Convolution2DFunction',
-	# 'Concat': 'chainer.functions.concat.Concat',
-	# 'Dropout': 'chainer.functions.dropout',
-}
-
-_v1_to_new_name_dict = {
-	3: 'Concat',
-	4: 'Convolution',
-	5: 'Data',
-	6: 'Dropout',
-	14: 'InnerProduct',
-	15: 'LRN',
-	17: 'Pooling',
-	18: 'ReLU',
-	25: 'Eltwise',
-	33: 'Slice',
-	20: 'Softmax',
-	21: 'SoftmaxWithLoss',
-	22: 'Split',
-}
-
-
-class LayerTimer(object):
-	def __init__(self, caffemodel):
-		self.timer_hooks = []
-		net = caffe_pb.NetParameter()
-		with open(caffemodel, 'rb') as model_file:
-			net.MergeFromString(model_file.read())
-		
-		if net.layer:
-			for layer in net.layer:
-				layer_impl_path = _layer_impl_path_dict.get(layer.type)
-				if layer_impl_path:
-					self._setup_timer_by_layer(layer.type, layer_impl_path)
-				else:
-					print 'unimplemented layer timer: %s' % layer.type
-		else: #v1 format
-			for layer in net.layers:
-				layer_type = _v1_to_new_name_dict[layer.type]
-				layer_impl_path = _layer_impl_path_dict.get(layer_type)
-				if layer_impl_path:
-					self._setup_timer_by_layer(layer.name, layer_impl_path)
-				else:
-					print 'unimplemented layer timer: %s' % layer.type
-
-
-
-	def _setup_timer_by_layer(self, layer_name, layer_path):
-		# import layer impl
-		layer_path_list = layer_path.split('.')
-		module_path = '.'.join(layer_path_list[0:-1])
-		function_name = layer_path_list[-1]
-
-		module = __import__(module_path, globals(), locals(), [function_name])
-
-		func = getattr(module, function_name)
-		# Initilize a timer_hook
-		timer_hook = TimerHook()
-		self.timer_hooks.append((layer_name, timer_hook))
-
-		# dirty implementation here:
-		func._local_function_hooks = {}
-		func._n_local_function_hooks = 1
-		func._local_function_hooks[layer_name] = timer_hook
-
-	def print_total_time(self):
-		print '================================================'
-
-		for layer, hook in self.timer_hooks:
-			print '[{}]:'.format(layer)
-			print 'total time: {}'.format(hook.total_time())
-
-			layer_forward_time = 1 if len(hook.call_history) is 0 else len(hook.call_history)
-
-			print 'average time: {}'.format(hook.total_time() / layer_forward_time)
-
-		print '================================================'
+import numpy
 
 class ProgressBar(object):
 	def __init__(self, time):
@@ -116,18 +40,6 @@ class ProgressBar(object):
 	def show_progress(self):
 		sys.stderr.write('\r[{:6.2f}%]'.format(self.progress * 100))
 		sys.stderr.flush()
-
-
-
-
-
-import time
-
-import numpy
-
-from chainer import cuda
-from chainer import function
-
 
 class TimerHook(function.FunctionHook):
 	"""Function hook for measuring elapsed time of functions.
